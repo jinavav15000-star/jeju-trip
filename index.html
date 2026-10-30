@@ -207,7 +207,7 @@ footer p { margin: 0; }
   <main id="day" role="tabpanel" style="display:grid;gap:14px"></main>
 
   <footer>
-    <p>체크 표시는 이 휴대폰에만 저장돼요. 가족 폰마다 따로 체크해요.</p>
+    <p id="sync-status">체크 표시는 이 휴대폰에만 저장돼요.</p>
     <p>영업시간·운항 여부는 바뀔 수 있으니 출발 전에 한 번 더 확인하세요.</p>
     <button class="reset" id="reset" type="button">체크 모두 지우기</button>
   </footer>
@@ -291,6 +291,48 @@ const KEY = "jeju-trip-checks";
 let checks = new Set();
 try { checks = new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); } catch (e) {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify([...checks])); } catch (e) {} };
+
+/* 가족 공유: Firebase Realtime Database (REST + 실시간 스트림). 연결이 안 되면 이 폰에만 저장 */
+const SYNC_URL = "https://dasol-jeju-default-rtdb.asia-southeast1.firebasedatabase.app/jeju2026/checks";
+const fbKey = id => encodeURIComponent(id.replace(/[.$#\[\]\/]/g, "_"));
+let synced = false;
+function setSync(on) {
+  synced = on;
+  const el = document.getElementById("sync-status");
+  if (el) el.textContent = on ? "체크 표시가 가족 모두에게 실시간으로 공유돼요." : "체크 표시는 이 휴대폰에만 저장돼요.";
+}
+function applyRemote(path, data) {
+  if (path === "/") {
+    checks = new Set();
+    if (data) Object.keys(data).forEach(k => { if (data[k] === true) checks.add(decodeURIComponent(k)); });
+  } else {
+    const k = decodeURIComponent(path.slice(1));
+    data === true ? checks.add(k) : checks.delete(k);
+  }
+  save(); renderDay();
+}
+function startSync() {
+  if (typeof EventSource === "undefined") return;
+  let es;
+  try { es = new EventSource(SYNC_URL + ".json"); } catch (e) { return; }
+  const onData = e => {
+    try { const m = JSON.parse(e.data); setSync(true); applyRemote(m.path, m.data); } catch (err) {}
+  };
+  es.addEventListener("put", onData);
+  es.addEventListener("patch", e => {
+    try { const m = JSON.parse(e.data); Object.keys(m.data || {}).forEach(k => applyRemote(m.path.replace(/\/$/, "") + "/" + k, m.data[k])); } catch (err) {}
+  });
+  ["cancel", "auth_revoked"].forEach(t => es.addEventListener(t, () => { es.close(); setSync(false); }));
+  es.onerror = () => setSync(false);
+}
+function pushCheck(id, on) {
+  if (!synced) return;
+  const url = `${SYNC_URL}/${fbKey(id)}.json`;
+  fetch(url, on ? { method: "PUT", body: "true" } : { method: "DELETE" }).catch(() => setSync(false));
+}
+function pushReset() {
+  if (synced) fetch(SYNC_URL + ".json", { method: "DELETE" }).catch(() => setSync(false));
+}
 
 const pad = n => String(n).padStart(2, "0");
 const now = new Date();
@@ -447,8 +489,9 @@ dayEl.addEventListener("click", e => {
   const b = e.target.closest("[data-check]"); if (!b) return;
   const j = b.dataset.check, fromNext = b.dataset.from === "next";
   const id = `${DAYS[cur].id}-${DAYS[cur].stops[j].n}`;
-  checks.has(id) ? checks.delete(id) : checks.add(id);
-  save(); renderDay();
+  const on = !checks.has(id);
+  on ? checks.add(id) : checks.delete(id);
+  save(); renderDay(); pushCheck(id, on);
   const back = fromNext
     ? (dayEl.querySelector(".next [data-check]") || dayEl.querySelector(".next button"))
     : dayEl.querySelector(`.check[data-check="${j}"]`);
@@ -465,14 +508,14 @@ const resetBtn = document.getElementById("reset");
 const disarm = () => { armed = false; resetBtn.textContent = "체크 모두 지우기"; resetBtn.classList.remove("armed"); };
 resetBtn.addEventListener("click", () => {
   if (!armed) {
-    armed = true; resetBtn.textContent = "한 번 더 누르면 지워져요"; resetBtn.classList.add("armed");
+    armed = true; resetBtn.textContent = synced ? "한 번 더 누르면 가족 모두의 체크가 지워져요" : "한 번 더 누르면 지워져요"; resetBtn.classList.add("armed");
     clearTimeout(armTimer); armTimer = setTimeout(disarm, 3000); return;
   }
   clearTimeout(armTimer);
-  checks.clear(); save(); disarm(); renderDay();
+  checks.clear(); save(); disarm(); renderDay(); pushReset();
 });
 
-renderTabs(); renderDay();
+renderTabs(); renderDay(); startSync();
 </script>
 </body>
 </html>
