@@ -330,8 +330,8 @@ function pushCheck(id, on) {
   const url = `${SYNC_URL}/${fbKey(id)}.json`;
   fetch(url, on ? { method: "PUT", body: "true" } : { method: "DELETE" }).catch(() => setSync(false));
 }
-function pushReset() {
-  if (synced) fetch(SYNC_URL + ".json", { method: "DELETE" }).catch(() => setSync(false));
+function pushReset(ids) {
+  if (synced) ids.forEach(id => pushCheck(id, false));
 }
 
 const pad = n => String(n).padStart(2, "0");
@@ -512,7 +512,8 @@ resetBtn.addEventListener("click", () => {
     clearTimeout(armTimer); armTimer = setTimeout(disarm, 3000); return;
   }
   clearTimeout(armTimer);
-  checks.clear(); save(); disarm(); renderDay(); pushReset();
+  const ids = [...checks];
+  checks.clear(); save(); disarm(); renderDay(); pushReset(ids);
 });
 
 renderTabs(); renderDay(); startSync();
