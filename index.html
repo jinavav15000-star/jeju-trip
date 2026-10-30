@@ -2,145 +2,277 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<!-- 사진·좌표는 기기 밖으로 나가지 않는다. MediaPipe 번들에 들어 있는 진단 로그 전송(odml.pa.googleapis.com)까지 막는다.
-     나중에 외부 API를 붙이면 여기에 도메인을 추가해야 한다. default-src는 넣지 말 것(인라인 스크립트·wasm 컴파일 차단). -->
-<meta http-equiv="Content-Security-Policy" content="connect-src 'self'">
-<meta name="color-scheme" content="only light">
-<meta name="theme-color" content="#FFF4EE">
-<meta name="description" content="사진 속 볼을 잡아당겼다 놓으면 출렁~ 사진은 폰 밖으로 나가지 않아요.">
-<meta property="og:title" content="볼 꼬집기">
-<meta property="og:description" content="사진 속 볼을 잡아당겼다 놓으면 출렁~ 사진은 폰 밖으로 나가지 않아요.">
-<meta property="og:image" content="https://jinavav15000-star.github.io/cheek-play/og.jpg">
-<meta property="og:url" content="https://jinavav15000-star.github.io/cheek-play/">
-<meta property="og:type" content="website">
-<meta name="twitter:card" content="summary_large_image">
-<title>볼 꼬집기</title>
-<link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="preload" href="fonts/jua.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="samples/baby1.jpg" as="fetch" crossorigin>
-<link rel="modulepreload" href="vendor/mediapipe/vision_bundle.mjs">
-<link rel="stylesheet" href="style.css">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>제주 가족여행</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@700&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<style>
+/* 레이아웃: 위에 날짜 탭(고정), 아래에 그날의 '다음 갈 곳' 카드 + 순서대로 내려가는 일정 줄 */
+:root {
+  --bg: #f4f6f4; --surface: #ffffff; --ink: #1d2321; --muted: #5b6662; --line: #dde2df;
+  --accent: #d9661f; --accent-soft: #fce9dc; --sea: #1c6f80; --sea-soft: #e0eff1; --done: #9aa39f;
+  --warn-soft: #fff4d6; --warn-ink: #7a5600;
+  --f-display: "Gowun Batang", "AppleMyungjo", serif;
+  --f-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121715; --surface: #1b2220; --ink: #edf1ef; --muted: #a2ada9; --line: #2c3532;
+  --accent: #f0904f; --accent-soft: #3a281c; --sea: #63b9ca; --sea-soft: #18313a; --done: #5e6865;
+  --warn-soft: #362c12; --warn-ink: #f1cf7a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #121715; --surface: #1b2220; --ink: #edf1ef; --muted: #a2ada9; --line: #2c3532;
+  --accent: #f0904f; --accent-soft: #3a281c; --sea: #63b9ca; --sea-soft: #18313a; --done: #5e6865;
+  --warn-soft: #362c12; --warn-ink: #f1cf7a; color-scheme: dark }
+
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.55; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.wrap { max-width: 560px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 48px; display: grid; gap: 18px; }
+
+header h1 { font-family: var(--f-display); font-size: 1.75rem; margin: 0; text-wrap: balance; }
+header p { margin: 2px 0 0; color: var(--muted); font-size: .95rem; }
+
+.tabs { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-block: 8px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.tab { font: inherit; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 12px; padding: 8px 4px; cursor: pointer; display: grid; line-height: 1.25; }
+.tab b { font-size: 1rem; }
+.tab span { font-size: .8rem; color: var(--muted); }
+.tab[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.tab[aria-selected="true"] span { color: inherit; opacity: .8; }
+.tab .today { font-size: .7rem; font-weight: 600; color: var(--accent); }
+.tab[aria-selected="true"] .today { color: var(--accent); }
+.tab:focus-visible, .btn:focus-visible, .check:focus-visible, summary:focus-visible { outline: 3px solid var(--sea); outline-offset: 2px; }
+
+.day-head h2 { font-family: var(--f-display); font-size: 1.45rem; margin: 0; }
+.day-head p { margin: 2px 0 0; color: var(--muted); }
+
+.keys { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.key { font-size: .85rem; background: var(--sea-soft); color: var(--sea); border-radius: 999px; padding: 3px 10px; font-weight: 500; font-variant-numeric: tabular-nums; }
+
+.next { background: var(--surface); border: 2px solid var(--accent); border-radius: 16px; padding: 14px 16px; display: grid; gap: 4px; }
+.next small { color: var(--accent); font-weight: 600; letter-spacing: .04em; }
+.next strong { font-size: 1.25rem; }
+.next .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+.next.alldone { border-color: var(--line); }
+
+ol.stops { list-style: none; margin: 0; padding: 0; display: grid; }
+.stop { display: grid; grid-template-columns: 30px 1fr auto; gap: 10px; padding-block: 12px; border-bottom: 1px solid var(--line); align-items: start; }
+.stop:last-child { border-bottom: 0; }
+.num { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: .85rem; font-weight: 600; background: var(--line); color: var(--ink); font-variant-numeric: tabular-nums; }
+.body { min-width: 0; display: grid; gap: 3px; }
+.name { font-weight: 600; font-size: 1.05rem; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.tag { font-size: .75rem; padding: 1px 8px; border-radius: 6px; background: var(--line); color: var(--ink); }
+.tag.meal { background: var(--accent-soft); color: var(--accent); }
+.tag.cafe { background: var(--sea-soft); color: var(--sea); }
+.time { font-size: .85rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.note { color: var(--muted); font-size: .9rem; }
+.note.warn { color: var(--warn-ink); background: var(--warn-soft); border-radius: 8px; padding: 4px 8px; }
+.links { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+.btn { font: inherit; font-size: .85rem; text-decoration: none; color: var(--ink); border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 4px 10px; cursor: pointer; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.check { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--line); background: var(--surface); cursor: pointer; display: grid; place-items: center; color: transparent; font-size: 1rem; }
+.stop.done .check { background: var(--sea); border-color: var(--sea); color: #fff; }
+.stop.done .name { color: var(--done); text-decoration: line-through; }
+.stop.done .num { opacity: .5; }
+
+details { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+summary { font-weight: 600; cursor: pointer; }
+details ul { margin: 10px 0 0; padding-left: 1.1em; display: grid; gap: 6px; }
+details li b { color: var(--accent); }
+
+footer { color: var(--muted); font-size: .8rem; display: grid; gap: 4px; }
+.reset { justify-self: start; }
+@media (prefers-reduced-motion: no-preference) { .stop, .check { transition: background .15s, color .15s; } }
+</style>
 </head>
 <body>
-<header class="top">
-  <h1>볼 꼬집기</h1>
-  <p id="hint" class="hint">볼을 누른 채 끌었다가 놓아보세요</p>
-  <div class="top-actions">
-    <button id="btnHelp" class="chip" aria-label="사용법 다시 보기">?</button>
-    <button id="btnFeedback" class="chip">의견 보내기</button>
-  </div>
-</header>
 
-<main id="stage" class="stage">
-  <canvas id="gl" role="img" aria-label="볼을 당길 수 있는 사진"></canvas>
-  <div id="regions" class="regions"></div>
-  <div id="finger" class="finger" hidden></div>
-  <div id="busy" class="busy" role="status" aria-live="polite" hidden>
-    <i class="spin"></i><span id="busyText">볼 찾는 중…</span>
-    <button id="busyManual" class="chip" hidden>직접 맞추기</button>
-  </div>
-  <div id="coach" class="coach" role="status" aria-live="polite" hidden>
-    <p id="coachText"></p>
-    <div id="coachBtns" class="coach-btns"></div>
-  </div>
-  <button id="resetView" class="chip reset-view" hidden>원래 크기</button>
-  <button id="shareChip" class="chip share-chip" hidden>이 장면 저장·공유</button>
-  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-</main>
+<div class="wrap">
+  <header>
+    <h1>제주 가족여행</h1>
+    <p>10월 31일(토) – 11월 3일(화) · 3박 4일</p>
+  </header>
 
-<nav class="bottom">
-  <button id="btnPhoto" class="btn pink">사진 불러오기</button>
-  <button id="btnEdit" class="btn mint" aria-pressed="false">볼 위치 맞추기</button>
-  <button id="btnFeel" class="btn butter">느낌 조절</button>
-  <!-- display:none 대신 화면 밖에 두어 폰 브라우저에서 click()이 막히지 않게 한다 -->
-  <input id="file" type="file" accept="image/*" class="offscreen" tabindex="-1">
-  <input id="fileCam" type="file" accept="image/*" capture="environment" class="offscreen" tabindex="-1">
-</nav>
+  <nav class="tabs" role="tablist" id="tabs"></nav>
 
-<section id="editPanel" class="sheet edit-panel" hidden>
-  <div class="sheet-head">
-    <div id="regionTabs" class="tabs"></div>
-    <button id="editDone" class="btn small primary">완료</button>
-  </div>
-  <div class="edit-grid">
-    <div class="dpad" aria-label="위치 미세 조절">
-      <button class="dbtn" data-dx="0" data-dy="-1" aria-label="위로">↑</button>
-      <button class="dbtn" data-dx="-1" data-dy="0" aria-label="왼쪽으로">←</button>
-      <button class="dbtn" data-dx="1" data-dy="0" aria-label="오른쪽으로">→</button>
-      <button class="dbtn" data-dx="0" data-dy="1" aria-label="아래로">↓</button>
-    </div>
-    <div class="size-box">
-      <label>크기 <output id="oSize"></output>
-        <input id="sSize" type="range" min="0.03" max="0.45" step="0.005">
-      </label>
-      <div class="size-btns">
-        <button id="sizeDown" class="btn butter small">작게</button>
-        <button id="sizeUp" class="btn butter small">크게</button>
-      </div>
-    </div>
-  </div>
-  <div class="edit-actions">
-    <button id="regionAdd" class="btn small">볼 추가</button>
-    <button id="regionDel" class="btn small">이 볼 지우기</button>
-    <button id="regionRefind" class="btn small">다시 찾기</button>
-  </div>
-  <label class="check"><input id="cShow" type="checkbox"> 놀 때도 볼 원 흐리게 보이기</label>
-  <p class="note">사진을 톡 누르면 선택한 원이 그 자리로 가요. 원을 끌거나 화살표로 미세 조절하고, 분홍 점을 끌면 크기가 바뀌어요.</p>
-</section>
+  <main id="day" style="display:grid;gap:18px"></main>
 
-<section id="pick" class="sheet pick" hidden>
-  <div class="sheet-head">
-    <h2>사진 불러오기</h2>
-    <button id="pickClose" class="btn small">닫기</button>
-  </div>
-  <p class="note strong">사진은 폰 안에서만 처리돼요. 어디에도 올라가지 않아요.</p>
-  <button id="pickGallery" class="btn primary tall">폰에 있는 사진에서 고르기</button>
-  <button id="pickCamera" class="btn mint tall">카메라로 찍기</button>
-  <p class="note">또는 샘플 아기 사진으로 해보기 (AI로 만든 가상의 아기예요)</p>
-  <div id="sampleRow" class="samples"></div>
-  <p class="note">선택창이 뜨면 갤러리(사진)를 고르세요. 정면 얼굴 사진이 가장 잘 돼요. 강아지·고양이·아기 배도 원을 놓으면 돼요.</p>
-</section>
+  <footer>
+    <span>✓ 표시는 이 휴대폰에만 저장돼요. 가족 폰마다 따로 체크해요.</span>
+    <span>영업시간·운항 여부는 바뀔 수 있으니 출발 전에 한 번 더 확인하세요.</span>
+    <button class="btn reset" id="reset" type="button">체크 모두 지우기</button>
+  </footer>
+</div>
 
-<section id="sheet" class="sheet" hidden>
-  <div class="sheet-head">
-    <h2>느낌 조절</h2>
-    <button id="sheetClose" class="btn small">닫기</button>
-  </div>
-  <div class="presets" role="group" aria-label="느낌 프리셋">
-    <button class="chip preset" data-preset="soft">말랑</button>
-    <button class="chip preset" data-preset="chewy">쫀득</button>
-    <button class="chip preset" data-preset="bouncy">탱탱</button>
-  </div>
-  <label class="check"><input id="cHaptic" type="checkbox"> 진동 피드백</label>
-  <details class="more">
-    <summary>더 세밀하게</summary>
-    <label>출렁임 빠르기 <output id="oFreq"></output>
-      <input id="sFreq" type="range" min="2" max="8" step="0.1">
-      <span class="ends"><span>느긋</span><span>통통</span></span>
-    </label>
-    <label>출렁임 크기 <output id="oWobble"></output>
-      <input id="sWobble" type="range" min="0" max="1" step="0.01">
-      <span class="ends"><span>살짝</span><span>흐물</span></span>
-    </label>
-    <label>얼마나 늘어나나 <output id="oStretch"></output>
-      <input id="sStretch" type="range" min="0.4" max="1.4" step="0.01">
-      <span class="ends"><span>조금</span><span>쭉</span></span>
-    </label>
-    <label>잡히는 넓이 <output id="oGrab"></output>
-      <input id="sGrab" type="range" min="0.6" max="1.4" step="0.01">
-      <span class="ends"><span>좁게</span><span>넓게</span></span>
-    </label>
-    <label class="check dev-only" hidden><input id="cMask" type="checkbox"> 볼 영역만 움직이기 (끄면 배경까지 늘어남)</label>
-    <button id="btnReset" class="btn small">기본값으로</button>
-  </details>
-  <p class="note">사진과 얼굴 인식은 모두 폰 안에서만 처리되고 어디에도 올라가지 않아요. <a href="privacy.html" target="_blank" rel="noopener">개인정보 · 오픈소스</a></p>
-</section>
+<script>
+const DAYS = [
+  { id: "d1", date: "2026-10-31", dow: "토", short: "서쪽", title: "서쪽 · 애월 → 한림 → 협재",
+    keys: ["08:00 아침 오픈", "일몰 약 17:45"],
+    stops: [
+      { n: "바당길", k: "meal", kl: "아침", t: "08:00 오픈", q: "바당길 애월" },
+      { n: "픽업카페 애월점", k: "cafe", kl: "카페", note: "주차: 애월카페거리 카카오주차장", q: "픽업카페 애월점" },
+      { n: "AVA 아바", k: "sight", kl: "들르기", q: "AVA 아바 애월" },
+      { n: "한담해안산책로", k: "sight", kl: "산책", note: "애월카페거리 바로 옆. 차는 주차장에 두고 걸어가도 돼요.", q: "한담해안산책로" },
+      { n: "카페 로비", k: "cafe", kl: "카페", q: "카페 로비 제주" },
+      { n: "신창풍차해안도로", k: "sight", kl: "드라이브", q: "신창풍차해안도로" },
+      { n: "한림공원", k: "sight", kl: "관광", note: "입장 마감 시간이 있어요. 늦어지면 먼저 들르세요.", q: "한림공원" },
+      { n: "선인장군락지 (월령리)", k: "sight", kl: "일몰", t: "17:30 전 도착", note: "해 지는 시간 약 17:45", q: "월령리 선인장군락지" },
+      { n: "혼저 협재 흑돼지", k: "meal", kl: "저녁", note: "토요일 저녁이라 대기가 길 수 있어요. 미리 줄서기·예약 확인.", q: "혼저 협재" },
+      { n: "숙소", k: "sight", kl: "휴식" }
+    ],
+    tips: [
+      "<b>비 오면</b> 한담해안산책로·신창풍차는 짧게, 카페 두 곳에서 오래 쉬기. 일몰은 구름 끼면 생략.",
+      "<b>시간이 밀리면</b> AVA 아바나 카페 로비 중 하나를 빼기.",
+      "<b>짐</b> 해안 바람이 세니 얇은 겉옷 하나씩."
+    ] },
+  { id: "d2", date: "2026-11-01", dow: "일", short: "남쪽", title: "남쪽 · 마라도 → 산방산 → 서귀포",
+    keys: ["09:10 운진항 도착", "09:40 배 출발", "11:50 돌아오는 배"],
+    stops: [
+      { n: "운진항 (마라도행)", k: "sight", kl: "배", t: "09:40 출발", note: "신분증 꼭 챙기기 (가족 모두). 출발 30분 전 도착해서 승선신고서 작성.", warn: true, q: "운진항" },
+      { n: "마라도 짜장면", k: "meal", kl: "아점", t: "10:00 오픈", note: "해녀촌짜장 또는 심봉사 눈 뜬 톳 해물짜장 짬뽕. 섬에 1시간 40분 있어요. 먹고 나서 섬 한 바퀴.", q: "마라도 해녀촌" },
+      { n: "돌아오는 배", k: "sight", kl: "배", t: "11:50", note: "놓치면 다음 배까지 기다려야 해요. 11:40까지 선착장으로.", warn: true },
+      { n: "산방산 · 용머리해안", k: "sight", kl: "관광", note: "주차: 산방산 공영주차장. 용머리해안은 파도·물때 때문에 자주 통제돼요.", q: "산방산 공영주차장" },
+      { n: "대포주상절리", k: "sight", kl: "관광", q: "대포주상절리" },
+      { n: "카페 숨도", k: "cafe", kl: "카페", q: "카페 숨도 서귀포" },
+      { n: "서귀포매일올레시장", k: "meal", kl: "저녁 장보기", note: "오는정김밥, 부가네 얼큰이 닭날개, 회, 모찌 등. 오는정김밥은 전화 주문이 필요한 경우가 많아요.", q: "서귀포매일올레시장" },
+      { n: "숙소", k: "sight", kl: "휴식" }
+    ],
+    tips: [
+      "<b>아침에 먼저</b> 마라도 배가 뜨는지 확인. 바람이 세면 결항돼요.",
+      "<b>배가 안 뜨면</b> 운진항 근처 송악산 둘레길을 걷고 산방산부터 이어서 가면 돼요.",
+      "<b>멀미</b> 배는 약 30분. 멀미하는 가족은 미리 멀미약.",
+      "<b>용머리해안 통제 시</b> 산방산 앞에서 사진만 찍고 대포주상절리로."
+    ] },
+  { id: "d3", date: "2026-11-02", dow: "월", short: "동쪽", title: "동쪽 · 숲길 → 성산 → 바닷가",
+    keys: ["09:00 아점 오픈", "19:00 바른갈치 마지막 주문"],
+    stops: [
+      { n: "미담 국수", k: "meal", kl: "아점", t: "09:00 오픈", q: "미담국수 제주" },
+      { n: "사려니숲길", k: "sight", kl: "산책", note: "편한 신발. 비 와도 걷기 좋은 곳이에요.", q: "사려니숲길" },
+      { n: "산굼부리", k: "sight", kl: "관광", note: "가을 억새가 예쁜 시기예요.", q: "산굼부리" },
+      { n: "카페 안도르", k: "cafe", kl: "카페", q: "카페 안도르" },
+      { n: "섭지코지", k: "sight", kl: "관광", q: "섭지코지" },
+      { n: "세화해변", k: "sight", kl: "바다", q: "세화해변" },
+      { n: "월정리해수욕장", k: "sight", kl: "바다", q: "월정리해수욕장" },
+      { n: "바른갈치", k: "meal", kl: "저녁", t: "19:00 마지막 주문", note: "18:30까지 도착 목표.", warn: true, q: "바른갈치" },
+      { n: "우디버디", k: "sight", kl: "들르기", t: "19:30", q: "우디버디 제주" },
+      { n: "숙소", k: "sight", kl: "휴식" }
+    ],
+    tips: [
+      "<b>일정이 제일 많은 날</b> 17시가 넘었는데 섭지코지 전이면 세화·월정리 중 하나를 빼기.",
+      "<b>비 오면</b> 사려니숲길은 그대로, 섭지코지는 바람이 세서 짧게.",
+      "<b>저녁</b> 바른갈치 마지막 주문 19:00을 기준으로 거꾸로 시간 맞추기."
+    ] },
+  { id: "d4", date: "2026-11-03", dow: "화", short: "공항", title: "마지막 날 · 제주시 → 공항",
+    keys: ["08:00 아점 오픈", "비행기 시간 확인"],
+    stops: [
+      { n: "닥그네할망", k: "meal", kl: "아점", t: "08:00 오픈", q: "닥그네할망" },
+      { n: "사라봉", k: "sight", kl: "산책", q: "사라봉" },
+      { n: "카페 진정성 종점", k: "cafe", kl: "카페", q: "카페 진정성 종점" },
+      { n: "렌터카 반납 → 공항", k: "sight", kl: "이동", note: "반납하고 셔틀 타는 시간까지 생각해서 비행기 1시간 30분 전에는 반납.", warn: true, q: "제주국제공항" }
+    ],
+    tips: [
+      "<b>아침에</b> 짐을 다 싸서 차에 싣고 출발.",
+      "<b>시간이 빠듯하면</b> 사라봉을 빼고 카페에서 쉬다 가기.",
+      "<b>기념품</b> 공항 면세점·기념품점은 탑승 수속 후에도 들를 수 있어요."
+    ] }
+];
 
-<!-- iOS 사파리(18+)용 햅틱 우회: 스위치형 체크박스를 토글하면 시스템 햅틱이 울린다. 화면에는 보이지 않는다. -->
-<label id="iosHaptic" class="ios-haptic" aria-hidden="true"><input type="checkbox" switch tabindex="-1"></label>
+const KEY = "jeju-trip-checks";
+let checks = new Set();
+try { checks = new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); } catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify([...checks])); } catch (e) {} };
 
-<script src="app.js"></script>
+const pad = n => String(n).padStart(2, "0");
+const now = new Date();
+const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+const todayIdx = DAYS.findIndex(d => d.date === todayStr);
+
+function startIdx() {
+  const h = location.hash.replace("#", "");
+  const byHash = DAYS.findIndex(d => d.id === h);
+  if (byHash >= 0) return byHash;
+  if (todayIdx >= 0) return todayIdx;
+  return todayStr > DAYS[DAYS.length - 1].date ? DAYS.length - 1 : 0;
+}
+let cur = startIdx();
+try { const s = sessionStorage.getItem("jeju-tab"); if (s !== null && !location.hash) cur = +s; } catch (e) {}
+
+const mapUrl = q => "https://map.kakao.com/link/search/" + encodeURIComponent(q);
+const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function renderTabs() {
+  document.getElementById("tabs").innerHTML = DAYS.map((d, i) => {
+    const [, m, dd] = d.date.split("-");
+    return `<button class="tab" role="tab" id="tab-${d.id}" aria-selected="${i === cur}" data-i="${i}" type="button">
+      <b>${+m}/${+dd} ${d.dow}</b><span>${d.short}</span>${i === todayIdx ? '<span class="today">오늘</span>' : ""}
+    </button>`;
+  }).join("");
+}
+
+function renderDay() {
+  const d = DAYS[cur];
+  const sid = (j) => `${d.id}-${j}`;
+  const nextJ = d.stops.findIndex((s, j) => !checks.has(sid(j)));
+  const nx = d.stops[nextJ];
+  const nextCard = nextJ < 0
+    ? `<section class="next alldone"><small>오늘 일정</small><strong>모두 다녀왔어요</strong></section>`
+    : `<section class="next" aria-live="polite">
+        <small>다음 갈 곳 · ${nextJ + 1}번째</small>
+        <strong>${esc(nx.n)}</strong>
+        ${nx.t ? `<span class="time">${esc(nx.t)}</span>` : ""}
+        ${nx.note ? `<span class="note">${esc(nx.note)}</span>` : ""}
+        <div class="row">
+          ${nx.q ? `<a class="btn primary" href="${mapUrl(nx.q)}" target="_blank" rel="noopener">카카오맵에서 열기</a>` : ""}
+          <button class="btn" type="button" data-check="${nextJ}">다녀왔어요 ✓</button>
+        </div>
+      </section>`;
+
+  document.getElementById("day").innerHTML = `
+    <section class="day-head">
+      <h2>${esc(d.title)}</h2>
+      <div class="keys">${d.keys.map(k => `<span class="key">${esc(k)}</span>`).join("")}</div>
+    </section>
+    ${nextCard}
+    <ol class="stops">
+      ${d.stops.map((s, j) => `
+        <li class="stop ${checks.has(sid(j)) ? "done" : ""}">
+          <span class="num">${j + 1}</span>
+          <div class="body">
+            <span class="name">${esc(s.n)}</span>
+            <div class="meta"><span class="tag ${s.k}">${esc(s.kl)}</span>${s.t ? `<span class="time">${esc(s.t)}</span>` : ""}</div>
+            ${s.note ? `<span class="note ${s.warn ? "warn" : ""}">${esc(s.note)}</span>` : ""}
+            ${s.q ? `<div class="links"><a class="btn" href="${mapUrl(s.q)}" target="_blank" rel="noopener">지도</a></div>` : ""}
+          </div>
+          <button class="check" type="button" data-check="${j}" aria-pressed="${checks.has(sid(j))}" aria-label="${esc(s.n)} 다녀옴 표시">✓</button>
+        </li>`).join("")}
+    </ol>
+    <details id="tips-${d.id}">
+      <summary>상황별 대비 (비·지연·결항)</summary>
+      <ul>${d.tips.map(t => `<li>${t}</li>`).join("")}</ul>
+    </details>`;
+}
+
+document.getElementById("tabs").addEventListener("click", e => {
+  const b = e.target.closest(".tab"); if (!b) return;
+  cur = +b.dataset.i;
+  try { sessionStorage.setItem("jeju-tab", cur); } catch (err) {}
+  renderTabs(); renderDay();
+  window.scrollTo({ top: 0 });
+});
+document.getElementById("day").addEventListener("click", e => {
+  const b = e.target.closest("[data-check]"); if (!b) return;
+  const id = `${DAYS[cur].id}-${b.dataset.check}`;
+  checks.has(id) ? checks.delete(id) : checks.add(id);
+  save(); renderDay();
+});
+let armed = false;
+document.getElementById("reset").addEventListener("click", e => {
+  if (!armed) { armed = true; e.target.textContent = "한 번 더 누르면 지워져요"; setTimeout(() => { armed = false; e.target.textContent = "체크 모두 지우기"; }, 3000); return; }
+  checks.clear(); save(); armed = false; e.target.textContent = "체크 모두 지우기"; renderDay();
+});
+
+renderTabs(); renderDay();
+</script>
 </body>
 </html>
